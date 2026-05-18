@@ -319,7 +319,7 @@ describe("Statements page — edit a line item", () => {
       type: "expense",
       category: "food",
       label: "Groceries",
-      amount_pence: 50_000,
+      amount_minor: 50_000,
     });
     let patchedBody: unknown = null;
     server.use(
@@ -332,7 +332,7 @@ describe("Statements page — edit a line item", () => {
           return HttpResponse.json(
             makeStatement({
               id,
-              line_items: [{ ...item, amount_pence: 60_000 }],
+              line_items: [{ ...item, amount_minor: 60_000 }],
             }),
           );
         },
@@ -360,7 +360,7 @@ describe("Statements page — edit a line item", () => {
     expect(patchedBody).toMatchObject({
       type: "expense",
       category: "food",
-      amount_pence: 6_000,
+      amount_minor: 6_000,
     });
   });
 

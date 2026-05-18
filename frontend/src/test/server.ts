@@ -40,7 +40,7 @@ export const defaultHandlers = [
             type: li.type,
             category: li.category,
             label: li.label ?? null,
-            amount_pence: li.amount_pence,
+            amount_minor: li.amount_minor,
           }),
         ),
       }),

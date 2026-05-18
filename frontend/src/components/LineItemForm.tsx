@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type {
+  Currency,
   ExpenseCategory,
   IncomeCategory,
   LineItemCreate,
@@ -26,18 +27,35 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = [
 
 const LABEL_MAX_LENGTH = 120;
 
+/**
+ * Currency symbol shown on the input label. The actual money formatting goes
+ * through Intl.NumberFormat elsewhere; this is just a label hint so the user
+ * knows which currency they're entering.
+ */
+const CURRENCY_SYMBOL: Record<Currency, string> = {
+  GBP: "£",
+  EUR: "€",
+  USD: "$",
+  AUD: "A$",
+};
+
 function prettyCategory(c: string) {
   return c.replace("_", " ");
 }
 
-function poundsFromPence(pence: number): string {
-  // Display whole-pound amounts without a trailing .00; everything else keeps
-  // two decimal places.
-  return pence % 100 === 0 ? String(pence / 100) : (pence / 100).toFixed(2);
+/**
+ * Convert a stored minor-unit amount into the major-unit string used by the
+ * <input>. For our 2-digit-minor allowlist this is /100. Whole-major values
+ * drop the trailing .00.
+ */
+function majorFromMinor(minor: number): string {
+  return minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2);
 }
 
 export interface LineItemFormProps {
   onSubmit: (item: LineItemCreate) => void;
+  /** The parent statement's currency — drives the amount-input label only. */
+  currency: Currency;
   /** When set the form is in *edit* mode: prepopulated, with a Cancel button
    *  and a different submit label. */
   initial?: LineItemRead | null;
@@ -47,6 +65,7 @@ export interface LineItemFormProps {
 
 export function LineItemForm({
   onSubmit,
+  currency,
   initial = null,
   onCancel,
   pending,
@@ -56,19 +75,17 @@ export function LineItemForm({
   const [type, setType] = useState<LineItemType>(initial?.type ?? "expense");
   const [category, setCategory] = useState<string>(initial?.category ?? "food");
   const [label, setLabel] = useState(initial?.label ?? "");
-  const [pounds, setPounds] = useState(
-    initial ? poundsFromPence(initial.amount_pence) : "",
+  const [amount, setAmount] = useState(
+    initial ? majorFromMinor(initial.amount_minor) : "",
   );
   const [submitted, setSubmitted] = useState(false);
 
-  // If a different row enters edit mode we get a new ``initial`` — sync the
-  // form to it. Callers can also bypass this by remounting with a ``key``.
   useEffect(() => {
     if (initial) {
       setType(initial.type);
       setCategory(initial.category);
       setLabel(initial.label ?? "");
-      setPounds(poundsFromPence(initial.amount_pence));
+      setAmount(majorFromMinor(initial.amount_minor));
       setSubmitted(false);
     }
   }, [initial]);
@@ -80,16 +97,12 @@ export function LineItemForm({
     setCategory(next === "income" ? "salary" : "food");
   }
 
-  // Parse the user input once; reuse for validation + submit.
-  const parsed = parseFloat(pounds);
-  const amountPence = Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
+  const parsed = parseFloat(amount);
+  const amountMinor = Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
 
-  // Validation derives from current state — we only *display* the errors
-  // once the user has tried to submit (less nagging while they're still
-  // typing).
   const errors = {
     amount:
-      amountPence === null || amountPence <= 0
+      amountMinor === null || amountMinor <= 0
         ? "Please enter an amount greater than zero."
         : null,
     label:
@@ -103,17 +116,16 @@ export function LineItemForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
-    if (!isValid || amountPence === null) return;
+    if (!isValid || amountMinor === null) return;
     onSubmit({
       type,
       category: category as IncomeCategory | ExpenseCategory,
       label: label.trim() || null,
-      amount_pence: amountPence,
+      amount_minor: amountMinor,
     });
     if (!isEditing) {
-      // Creation mode: clear the inputs so the next add starts fresh.
       setLabel("");
-      setPounds("");
+      setAmount("");
       setSubmitted(false);
     }
   }
@@ -177,15 +189,15 @@ export function LineItemForm({
           )}
         </div>
         <div className="form-row">
-          <label htmlFor="li-amount">Amount (£)</label>
+          <label htmlFor="li-amount">Amount ({CURRENCY_SYMBOL[currency]})</label>
           <input
             id="li-amount"
             type="number"
             inputMode="decimal"
             min="0"
             step="0.01"
-            value={pounds}
-            onChange={(e) => setPounds(e.target.value)}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
             aria-invalid={showErrors && !!errors.amount}
             aria-describedby={
               showErrors && errors.amount ? "li-amount-error" : undefined

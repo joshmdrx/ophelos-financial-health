@@ -29,6 +29,8 @@ DEFAULT_EXPENSES = [
     ("expense", "housing", "Rent", 50_000),
     ("expense", "food", "Groceries", 50_000),
 ]
+DEFAULT_CURRENCY = "GBP"
+DEFAULT_COUNTRY = "GB"
 
 
 @pytest.fixture()
@@ -83,19 +85,27 @@ def seed_statement(db: Session) -> SeedStatement:
         period_start: date = date(2026, 4, 1),
         period_end: date = date(2026, 4, 30),
         note: str | None = None,
+        currency: str = DEFAULT_CURRENCY,
+        country_code: str = DEFAULT_COUNTRY,
         items: list[tuple[str, str, str | None, int]] | None = None,
     ) -> Statement:
         if items is None:
             items = DEFAULT_INCOME + DEFAULT_EXPENSES
 
-        stmt = Statement(period_start=period_start, period_end=period_end, note=note)
+        stmt = Statement(
+            period_start=period_start,
+            period_end=period_end,
+            note=note,
+            currency=currency,
+            country_code=country_code,
+        )
         for type_, category, label, amount in items:
             stmt.line_items.append(
                 LineItem(
                     type=type_,
                     category=category,
                     label=label,
-                    amount_pence=amount,
+                    amount_minor=amount,
                 )
             )
         db.add(stmt)

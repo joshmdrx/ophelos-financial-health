@@ -76,14 +76,19 @@ def main() -> None:
         db.commit()
 
         for period_start, period_end, items in SEED_DATA:
-            stmt = Statement(period_start=period_start, period_end=period_end)
+            stmt = Statement(
+                period_start=period_start,
+                period_end=period_end,
+                currency="GBP",
+                country_code="GB",
+            )
             for type_, category, label, amount in items:
                 stmt.line_items.append(
                     LineItem(
                         type=type_,
                         category=category,
                         label=label,
-                        amount_pence=amount,
+                        amount_minor=amount,
                     )
                 )
             db.add(stmt)

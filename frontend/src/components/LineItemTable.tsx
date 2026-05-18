@@ -1,14 +1,17 @@
-import type { LineItemRead } from "@/api";
-import { formatMoneyFromPence } from "@/lib/format";
+import type { Currency, LineItemRead } from "@/api";
+import { formatMoney } from "@/lib/format";
 
 export function LineItemTable({
   items,
+  currency,
   onEdit,
   onDelete,
   pendingDeleteId,
   editingId,
 }: {
   items: LineItemRead[];
+  /** Parent statement's currency — drives money formatting on amounts. */
+  currency: Currency;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   pendingDeleteId?: string | null;
@@ -46,7 +49,7 @@ export function LineItemTable({
               </td>
               <td>{li.category.replace("_", " ")}</td>
               <td>{li.label || "—"}</td>
-              <td className="amount">{formatMoneyFromPence(li.amount_pence)}</td>
+              <td className="amount">{formatMoney(li.amount_minor, currency)}</td>
               {hasActions && (
                 <td className="actions">
                   {onEdit && (

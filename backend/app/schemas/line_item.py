@@ -9,7 +9,7 @@ class LineItemBase(BaseModel):
     type: LineItemType
     category: IncomeCategory | ExpenseCategory
     label: str | None = Field(default=None, max_length=120)
-    amount_pence: int = Field(ge=0)
+    amount_minor: int = Field(ge=0)
 
     @model_validator(mode="after")
     def _category_matches_type(self):
@@ -28,7 +28,7 @@ class LineItemUpdate(BaseModel):
     type: LineItemType | None = None
     category: IncomeCategory | ExpenseCategory | None = None
     label: str | None = Field(default=None, max_length=120)
-    amount_pence: int | None = Field(default=None, ge=0)
+    amount_minor: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _category_matches_type(self):

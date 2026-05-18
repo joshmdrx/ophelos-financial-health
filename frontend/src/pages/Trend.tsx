@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -16,8 +17,8 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { Loading } from "@/components/states/Loading";
 import { useTrend } from "@/hooks/useStatements";
 import { BAND_META } from "@/lib/bands";
-import { formatMoneyFromPence } from "@/lib/format";
-import type { AssessmentBand, TrendPoint } from "@/api";
+import { formatMoney } from "@/lib/format";
+import type { AssessmentBand, Currency, TrendPoint } from "@/api";
 
 const BAND_COLOR: Record<AssessmentBand, string> = {
   healthy: "var(--band-healthy-accent)",
@@ -67,12 +68,12 @@ function TrendTooltip({
         <BandPill band={p.band} />
       </div>
       <div style={{ fontSize: 14, color: "var(--color-text-muted)" }}>
-        Income {formatMoneyFromPence(p.total_income_pence)}
+        Income {formatMoney(p.income_minor, p.currency)}
         <br />
-        Outgoings {formatMoneyFromPence(p.total_expenditure_pence)}
+        Outgoings {formatMoney(p.expenditure_minor, p.currency)}
         <br />
-        {p.surplus_pence >= 0 ? "Surplus" : "Shortfall"}{" "}
-        {formatMoneyFromPence(Math.abs(p.surplus_pence))}
+        {p.surplus_minor >= 0 ? "Surplus" : "Shortfall"}{" "}
+        {formatMoney(Math.abs(p.surplus_minor), p.currency)}
       </div>
     </div>
   );
@@ -100,6 +101,26 @@ function BandedDot({ cx, cy, payload }: DotProps) {
 
 export function Trend() {
   const { data, isLoading, isError, refetch } = useTrend();
+  const [currency, setCurrency] = useState<Currency | null>(null);
+
+  // The set of currencies the user actually has statements in — drives the
+  // filter dropdown so we never offer one with no data behind it.
+  const availableCurrencies = useMemo<Currency[]>(() => {
+    if (!data) return [];
+    const seen: Currency[] = [];
+    for (const p of data) {
+      if (!seen.includes(p.currency)) seen.push(p.currency);
+    }
+    return seen;
+  }, [data]);
+
+  // Default to the latest statement's currency (data is oldest-first, so the
+  // last entry is most recent).
+  const effectiveCurrency: Currency | null =
+    currency ??
+    (availableCurrencies.length > 0
+      ? data![data!.length - 1].currency
+      : null);
 
   if (isLoading) return <Loading what="your trend" />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
@@ -124,13 +145,16 @@ export function Trend() {
     );
   }
 
-  // One point isn't really a 'trend' — show a friendlier hint than a single dot.
-  const onlyOne = points.length === 1;
+  // Honest UX: don't mix currencies on one axis. Filter, don't convert.
+  const filtered = effectiveCurrency
+    ? points.filter((p) => p.currency === effectiveCurrency)
+    : points;
+  const onlyOne = filtered.length === 1;
 
-  const chartData = points.map((p) => ({
+  const chartData = filtered.map((p) => ({
     ...p,
     label: shortMonth(p.period_end),
-    surplus_pounds: p.surplus_pence / 100,
+    surplus_major: p.surplus_minor / 100,
   }));
 
   return (
@@ -143,11 +167,41 @@ export function Trend() {
         </p>
       </header>
 
+      {availableCurrencies.length > 1 && (
+        <div
+          className="toolbar"
+          style={{ justifyContent: "flex-start", gap: 12 }}
+        >
+          <label htmlFor="trend-currency" style={{ fontSize: "0.9rem" }}>
+            Showing
+          </label>
+          <select
+            id="trend-currency"
+            value={effectiveCurrency ?? ""}
+            onChange={(e) => setCurrency(e.target.value as Currency)}
+          >
+            {availableCurrencies.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <span
+            style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}
+          >
+            Statements in other currencies aren't mixed in — pick another to
+            see those.
+          </span>
+        </div>
+      )}
+
       <div className="chart-wrap">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 8, right: 24, left: 0, bottom: 8 }}
+            // Wider left margin makes room for the currency-formatted y-axis
+            // ticks (e.g. "£1,400.00") which would otherwise be clipped.
+            margin={{ top: 8, right: 24, left: 32, bottom: 8 }}
           >
             <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis
@@ -158,17 +212,24 @@ export function Trend() {
             <YAxis
               stroke="var(--color-text-subtle)"
               tickLine={false}
-              tickFormatter={(v) => `£${v}`}
+              tickFormatter={(v) =>
+                effectiveCurrency
+                  ? formatMoney(Math.round(v * 100), effectiveCurrency)
+                  : String(v)
+              }
             />
             <ReferenceLine
               y={0}
               stroke="var(--color-border-strong)"
               strokeDasharray="3 3"
             />
-            <Tooltip content={<TrendTooltip />} cursor={{ stroke: "var(--color-border-strong)" }} />
+            <Tooltip
+              content={<TrendTooltip />}
+              cursor={{ stroke: "var(--color-border-strong)" }}
+            />
             <Line
               type="monotone"
-              dataKey="surplus_pounds"
+              dataKey="surplus_major"
               stroke="var(--color-accent)"
               strokeWidth={2}
               dot={<BandedDot />}
@@ -187,14 +248,20 @@ export function Trend() {
             fontSize: 14,
           }}
         >
-          Just one statement so far — once you have a couple, you'll see the
-          shape of how things are changing.
+          Just one statement in this currency so far — once you have a couple,
+          you'll see the shape of how things are changing.
         </p>
       )}
 
       <section className="card" style={{ marginTop: 24 }}>
         <h2 className="card__title">How to read this</h2>
-        <ul style={{ margin: 0, paddingLeft: 20, color: "var(--color-text-muted)" }}>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 20,
+            color: "var(--color-text-muted)",
+          }}
+        >
           <li>
             <strong style={{ color: "var(--band-healthy-fg)" }}>
               {BAND_META.healthy.label}

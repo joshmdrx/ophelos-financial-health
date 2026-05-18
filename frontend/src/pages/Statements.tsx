@@ -19,7 +19,7 @@ import {
   useStatementList,
   useUpdateLineItem,
 } from "@/hooks/useStatements";
-import { formatMoneyFromPence, formatMonthRange } from "@/lib/format";
+import { formatMoney, formatMonthRange } from "@/lib/format";
 
 export function Statements() {
   const list = useStatementList();
@@ -120,8 +120,15 @@ export function Statements() {
                     {formatMonthRange(s.period_start, s.period_end)}
                   </div>
                   <div className="statement-row__sub">
-                    {formatMoneyFromPence(s.assessment.total_income_pence)} in ·{" "}
-                    {formatMoneyFromPence(s.assessment.total_expenditure_pence)}{" "}
+                    {formatMoney(
+                      s.assessment.numbers.income_minor,
+                      s.assessment.currency,
+                    )}{" "}
+                    in ·{" "}
+                    {formatMoney(
+                      s.assessment.numbers.expenditure_minor,
+                      s.assessment.currency,
+                    )}{" "}
                     out
                   </div>
                 </div>
@@ -192,10 +199,23 @@ function StatementDetail({
         periodLabel={formatMonthRange(data.period_start, data.period_end)}
       />
 
+      <p
+        style={{
+          marginTop: 12,
+          fontSize: "0.85rem",
+          color: "var(--color-text-muted)",
+        }}
+        aria-label="Statement currency and country"
+      >
+        Recorded in <strong>{data.currency}</strong> · {data.country_code} ·
+        these can't change once a statement is created.
+      </p>
+
       <section className="card" style={{ marginTop: 16 }}>
         <h2 className="card__title">Income and outgoings</h2>
         <LineItemTable
           items={data.line_items}
+          currency={data.currency}
           editingId={editingItemId}
           pendingDeleteId={pendingDeleteItemId}
           onEdit={(id) => {
@@ -221,6 +241,7 @@ function StatementDetail({
           // Remount when entering/leaving edit mode so internal state resets
           // cleanly without manual effect choreography.
           key={editingItemId ?? "new"}
+          currency={data.currency}
           initial={editingItem}
           pending={editingItem ? updateItem.isPending : addItem.isPending}
           onCancel={editingItem ? exitEditMode : undefined}

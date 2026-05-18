@@ -10,7 +10,7 @@ from app.db import Base
 class LineItem(Base):
     __tablename__ = "line_items"
     __table_args__ = (
-        CheckConstraint("amount_pence >= 0", name="ck_line_items_amount_non_negative"),
+        CheckConstraint("amount_minor >= 0", name="ck_line_items_amount_non_negative"),
         CheckConstraint("type in ('income', 'expense')", name="ck_line_items_type"),
     )
 
@@ -21,7 +21,10 @@ class LineItem(Base):
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     category: Mapped[str] = mapped_column(String(32), nullable=False)
     label: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    amount_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Amount in the parent statement's currency, in minor units (e.g. pence for
+    # GBP, cents for EUR). The parent's currency tells you the major-unit
+    # conversion (2 for our current allowlist).
+    amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

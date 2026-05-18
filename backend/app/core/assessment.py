@@ -1,14 +1,15 @@
-"""Pure assessment logic. No DB, no FastAPI — easy to unit-test.
+"""Pure assessment logic.
 
-A line item, for these purposes, is anything with `type`, `amount_pence`, and an
-`is_deleted` flag. We accept both ORM rows and plain dicts so the function is
-reusable from tests, scripts, and services.
+This module knows nothing about currency, formatting, or copy. It takes raw
+amounts (already in the statement's minor unit), computes a band, and returns a
+template key plus the raw numbers. The frontend picks the wording, formats the
+money, and owns the tone.
 """
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from app.enums import AssessmentBand, LineItemType
+from app.enums import AssessmentBand, AssessmentTemplateKey, LineItemType
 
 
 HEALTHY_RATIO_THRESHOLD = 0.10
@@ -17,15 +18,15 @@ HEALTHY_RATIO_THRESHOLD = 0.10
 @dataclass(frozen=True)
 class AssessmentResult:
     band: AssessmentBand
-    total_income_pence: int
-    total_expenditure_pence: int
-    surplus_pence: int
-    surplus_ratio: float | None
-    explanation: str
+    template_key: AssessmentTemplateKey
+    income_minor: int
+    expenditure_minor: int
+    # Signed: negative for deficit.
+    surplus_minor: int
 
 
 def _amount(item: Any) -> int:
-    return item["amount_pence"] if isinstance(item, dict) else item.amount_pence
+    return item["amount_minor"] if isinstance(item, dict) else item.amount_minor
 
 
 def _type(item: Any) -> str:
@@ -53,46 +54,37 @@ def assess(line_items: Iterable[Any]) -> AssessmentResult:
         else:
             expenditure += amount
 
+    surplus = income - expenditure
+
+    # No-data and no-income alike fall into 'insufficient_data'. We deliberately
+    # do *not* flag a user with no recorded income as 'deficit' — that framing
+    # is harmful in a vulnerable-customer context, and we'd rather prompt them
+    # to add income than label them.
     if item_count == 0 or income == 0:
         return AssessmentResult(
             band=AssessmentBand.insufficient_data,
-            total_income_pence=income,
-            total_expenditure_pence=expenditure,
-            surplus_pence=income - expenditure,
-            surplus_ratio=None,
-            explanation=(
-                "We don't have enough information yet to show a full picture. "
-                "Add your income and regular outgoings to get started."
-            ),
+            template_key=AssessmentTemplateKey.insufficient_data_default,
+            income_minor=income,
+            expenditure_minor=expenditure,
+            surplus_minor=surplus,
         )
 
-    surplus = income - expenditure
     ratio = surplus / income
 
     if surplus < 0:
         band = AssessmentBand.deficit
-        explanation = (
-            f"Your outgoings are about £{abs(surplus) / 100:,.2f} more than your income this period. "
-            "Small adjustments can make a real difference — let's look at where it might help most."
-        )
+        template_key = AssessmentTemplateKey.deficit_default
     elif ratio >= HEALTHY_RATIO_THRESHOLD:
         band = AssessmentBand.healthy
-        explanation = (
-            f"You have around £{surplus / 100:,.2f} left over after your outgoings — "
-            "that's a healthy margin. Keep it up."
-        )
+        template_key = AssessmentTemplateKey.healthy_default
     else:
         band = AssessmentBand.tight
-        explanation = (
-            f"Your income just covers your outgoings, with about £{surplus / 100:,.2f} left over. "
-            "It's tight but manageable — a small change either way can shift the picture."
-        )
+        template_key = AssessmentTemplateKey.tight_default
 
     return AssessmentResult(
         band=band,
-        total_income_pence=income,
-        total_expenditure_pence=expenditure,
-        surplus_pence=surplus,
-        surplus_ratio=ratio,
-        explanation=explanation,
+        template_key=template_key,
+        income_minor=income,
+        expenditure_minor=expenditure,
+        surplus_minor=surplus,
     )

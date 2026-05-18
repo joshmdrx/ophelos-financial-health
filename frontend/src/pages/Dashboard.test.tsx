@@ -39,11 +39,11 @@ describe("Dashboard", () => {
           period_start: "2026-04-01",
           period_end: "2026-04-30",
           assessment: makeAssessment("healthy", {
-            total_income_pence: 280_000,
-            total_expenditure_pence: 180_000,
-            surplus_pence: 100_000,
-            explanation:
-              "You have around £1,000.00 left over — that's a healthy margin.",
+            numbers: {
+              income_minor: 280_000,
+              expenditure_minor: 180_000,
+              surplus_minor: 100_000,
+            },
           }),
         }),
       ]),
@@ -74,11 +74,11 @@ describe("Dashboard", () => {
       statementsList([
         makeStatementSummary({
           assessment: makeAssessment("deficit", {
-            total_income_pence: 200_000,
-            total_expenditure_pence: 250_000,
-            surplus_pence: -50_000,
-            explanation:
-              "Your outgoings are about £500.00 more than your income this period.",
+            numbers: {
+              income_minor: 200_000,
+              expenditure_minor: 250_000,
+              surplus_minor: -50_000,
+            },
           }),
         }),
       ]),

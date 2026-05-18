@@ -1,6 +1,6 @@
 import type { Assessment } from "@/api";
-import { BAND_META } from "@/lib/bands";
-import { formatMoneyFromPence } from "@/lib/format";
+import { BAND_META, renderAssessmentCopy } from "@/lib/bands";
+import { formatMoney } from "@/lib/format";
 
 interface Props {
   assessment: Assessment;
@@ -10,7 +10,9 @@ interface Props {
 
 export function AssessmentCard({ assessment, periodLabel }: Props) {
   const meta = BAND_META[assessment.band];
-  const surplusLabel = assessment.surplus_pence >= 0 ? "Surplus" : "Shortfall";
+  const copy = renderAssessmentCopy(assessment);
+  const { numbers, currency } = assessment;
+  const surplusLabel = numbers.surplus_minor >= 0 ? "Surplus" : "Shortfall";
 
   return (
     <section
@@ -22,30 +24,30 @@ export function AssessmentCard({ assessment, periodLabel }: Props) {
         {periodLabel ? `Your position · ${periodLabel}` : "Your position"}
       </div>
       <h1 className="assessment__band">{meta.headline}</h1>
-      <p className="assessment__explanation">{assessment.explanation}</p>
+      <p className="assessment__explanation">{copy.body}</p>
 
       <div className="assessment__numbers" role="group" aria-label="Summary">
         <div>
           <div className="assessment__number-label">Income</div>
           <div className="assessment__number-value">
-            {formatMoneyFromPence(assessment.total_income_pence)}
+            {formatMoney(numbers.income_minor, currency)}
           </div>
         </div>
         <div>
           <div className="assessment__number-label">Outgoings</div>
           <div className="assessment__number-value">
-            {formatMoneyFromPence(assessment.total_expenditure_pence)}
+            {formatMoney(numbers.expenditure_minor, currency)}
           </div>
         </div>
         <div>
           <div className="assessment__number-label">{surplusLabel}</div>
           <div className="assessment__number-value">
-            {formatMoneyFromPence(Math.abs(assessment.surplus_pence))}
+            {formatMoney(Math.abs(numbers.surplus_minor), currency)}
           </div>
         </div>
       </div>
 
-      <p className="assessment__nextstep">{meta.nextStep}</p>
+      <p className="assessment__nextstep">{copy.nextStep}</p>
     </section>
   );
 }

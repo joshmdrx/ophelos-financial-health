@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.enums import CountryCode, Currency
 from app.schemas.assessment import Assessment
 from app.schemas.line_item import LineItemCreate, LineItemRead
 
@@ -10,6 +11,8 @@ class StatementBase(BaseModel):
     period_start: date
     period_end: date
     note: str | None = Field(default=None, max_length=1000)
+    currency: Currency
+    country_code: CountryCode
 
     @model_validator(mode="after")
     def _period_end_after_start(self):
@@ -23,6 +26,11 @@ class StatementCreate(StatementBase):
 
 
 class StatementUpdate(BaseModel):
+    # Currency and country are intentionally absent — they're immutable after
+    # creation. Pydantic rejects unknown fields with this config, so a client
+    # sending currency/country here gets a clear 422 rather than a silent drop.
+    model_config = ConfigDict(extra="forbid")
+
     period_start: date | None = None
     period_end: date | None = None
     note: str | None = Field(default=None, max_length=1000)
@@ -47,6 +55,8 @@ class StatementSummary(BaseModel):
     period_start: date
     period_end: date
     note: str | None
+    currency: Currency
+    country_code: CountryCode
     created_at: datetime
     updated_at: datetime
     assessment: Assessment

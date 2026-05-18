@@ -1,11 +1,10 @@
 """Trend endpoint tests.
 
-The trend drives the over-time chart in the UI. Three things matter:
-1. Ordering — chronological, oldest first (so the chart reads left→right).
+The trend drives the over-time chart in the UI. Four things matter:
+1. Ordering — chronological, oldest first.
 2. Inclusion — soft-deleted statements never appear.
-3. Per-point band correctness, including insufficient-data points (a customer
-   with an empty month should see a visible gap, not have the point silently
-   omitted).
+3. Per-point band correctness, including insufficient-data points.
+4. Currency travels per point so the frontend can filter and format.
 """
 from datetime import date
 
@@ -24,7 +23,6 @@ def test_trend_is_chronological_regardless_of_creation_order(client, seed_statem
 
 
 def test_trend_returns_mixed_bands_correctly(client, seed_statement):
-    # Three statements covering each non-trivial band.
     seed_statement(
         period_start=date(2026, 1, 1),
         period_end=date(2026, 1, 31),
@@ -55,8 +53,6 @@ def test_trend_returns_mixed_bands_correctly(client, seed_statement):
 
 
 def test_trend_includes_insufficient_data_points(client, seed_statement):
-    # An empty month is meaningful — it should appear in the series so the UI
-    # can render a gap, not silently disappear.
     seed_statement(
         period_start=date(2026, 1, 1),
         period_end=date(2026, 1, 31),
@@ -74,8 +70,8 @@ def test_trend_includes_insufficient_data_points(client, seed_statement):
     points = client.get("/api/trend").json()
     assert len(points) == 2
     assert points[1]["band"] == "insufficient_data"
-    assert points[1]["total_income_pence"] == 0
-    assert points[1]["total_expenditure_pence"] == 0
+    assert points[1]["income_minor"] == 0
+    assert points[1]["expenditure_minor"] == 0
 
 
 def test_trend_excludes_soft_deleted_statements(client, seed_statement):
@@ -88,7 +84,6 @@ def test_trend_excludes_soft_deleted_statements(client, seed_statement):
 
 
 def test_trend_reflects_soft_deleted_line_items_in_band(client, seed_statement):
-    # Statement starts in deficit; soft-deleting the big expense flips it to healthy.
     stmt = seed_statement(
         items=[
             ("income", "salary", None, 200_000),
@@ -106,6 +101,22 @@ def test_trend_reflects_soft_deleted_line_items_in_band(client, seed_statement):
 def test_trend_period_dates_are_iso_formatted(client, seed_statement):
     seed_statement(period_start=date(2026, 1, 1), period_end=date(2026, 1, 31))
     point = client.get("/api/trend").json()[0]
-    # Pin the wire format — UI date parsing depends on this.
     assert point["period_start"] == "2026-01-01"
     assert point["period_end"] == "2026-01-31"
+
+
+def test_trend_includes_currency_per_point(client, seed_statement):
+    # Mix GBP and EUR statements; each point carries its own currency so the
+    # frontend can filter without re-fetching individual statements.
+    seed_statement(
+        period_start=date(2026, 1, 1), period_end=date(2026, 1, 31), currency="GBP"
+    )
+    seed_statement(
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 2, 28),
+        currency="EUR",
+        country_code="IE",
+    )
+
+    points = client.get("/api/trend").json()
+    assert [p["currency"] for p in points] == ["GBP", "EUR"]

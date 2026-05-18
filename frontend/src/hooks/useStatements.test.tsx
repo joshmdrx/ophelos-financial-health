@@ -86,7 +86,7 @@ describe("useStatement", () => {
     const stmt = makeStatement({
       id: "abc",
       line_items: [
-        { id: "li-1", statement_id: "abc", type: "income", category: "salary", label: "Salary", amount_pence: 200_000, created_at: "", updated_at: "" },
+        { id: "li-1", statement_id: "abc", type: "income", category: "salary", label: "Salary", amount_minor: 200_000, created_at: "", updated_at: "" },
       ],
     });
     server.use(statementDetail(stmt));
@@ -151,6 +151,8 @@ describe("useCreateStatement", () => {
       period_start: "2026-04-01",
       period_end: "2026-04-30",
       note: null,
+      currency: "GBP",
+      country_code: "GB",
       line_items: [],
     });
 
@@ -168,6 +170,8 @@ describe("useCreateStatement", () => {
       period_start: "2026-04-01",
       period_end: "2026-04-30",
       note: null,
+      currency: "GBP",
+      country_code: "GB",
       line_items: [],
     });
 
@@ -239,11 +243,11 @@ describe("useAddLineItem", () => {
       type: "expense",
       category: "food",
       label: "Groceries",
-      amount_pence: 5_000,
+      amount_minor: 5_000,
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.line_items[0].amount_pence).toBe(5_000);
+    expect(result.current.data?.line_items[0].amount_minor).toBe(5_000);
   });
 
   it("propagates a server validation error", async () => {
@@ -255,7 +259,7 @@ describe("useAddLineItem", () => {
       type: "expense",
       category: "food",
       label: null,
-      amount_pence: 100,
+      amount_minor: 100,
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));

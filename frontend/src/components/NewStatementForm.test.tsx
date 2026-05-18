@@ -23,6 +23,8 @@ describe("NewStatementForm", () => {
     expect(onSubmit).toHaveBeenCalledWith({
       period_start: "2026-04-01",
       period_end: "2026-04-30",
+      currency: "GBP",
+      country_code: "GB",
     });
   });
 

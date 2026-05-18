@@ -4,9 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.assessment import AssessmentResult, assess
-from app.enums import LineItemType, is_valid_category
+from app.enums import Currency, LineItemType, is_valid_category
 from app.models import LineItem, Statement
-from app.schemas.assessment import Assessment, TrendPoint
+from app.schemas.assessment import Assessment, AssessmentNumbers, TrendPoint
 from app.schemas.line_item import LineItemCreate, LineItemUpdate
 from app.schemas.statement import (
     StatementCreate,
@@ -25,15 +25,14 @@ class ValidationError(Exception):
 
 
 def _now() -> datetime:
-    # Naive UTC; matches the column type used across the models.
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _touch(stmt: Statement) -> None:
-    """Explicitly bump the parent statement's updated_at when a child changes.
+    """Bump the parent statement's updated_at when a child row changes.
 
-    SQLAlchemy's ``onupdate`` only fires when the row itself is UPDATEd; mutating
-    a related collection doesn't qualify, so we set it ourselves.
+    SQLAlchemy's ``onupdate`` only fires when the row itself is UPDATEd;
+    mutating a related collection doesn't qualify, so we set it ourselves.
     """
     stmt.updated_at = _now()
 
@@ -41,14 +40,16 @@ def _touch(stmt: Statement) -> None:
 # --- helpers ---
 
 
-def _assessment_payload(result: AssessmentResult) -> Assessment:
+def _assessment_payload(result: AssessmentResult, currency: str) -> Assessment:
     return Assessment(
         band=result.band,
-        total_income_pence=result.total_income_pence,
-        total_expenditure_pence=result.total_expenditure_pence,
-        surplus_pence=result.surplus_pence,
-        surplus_ratio=result.surplus_ratio,
-        explanation=result.explanation,
+        template_key=result.template_key,
+        currency=Currency(currency),
+        numbers=AssessmentNumbers(
+            income_minor=result.income_minor,
+            expenditure_minor=result.expenditure_minor,
+            surplus_minor=result.surplus_minor,
+        ),
     )
 
 
@@ -62,9 +63,14 @@ def _to_summary(statement: Statement) -> StatementSummary:
         period_start=statement.period_start,
         period_end=statement.period_end,
         note=statement.note,
+        currency=Currency(statement.currency),
+        country_code=statement.country_code,
         created_at=statement.created_at,
         updated_at=statement.updated_at,
-        assessment=_assessment_payload(assess(_active_line_items(statement))),
+        assessment=_assessment_payload(
+            assess(_active_line_items(statement)),
+            statement.currency,
+        ),
     )
 
 
@@ -110,6 +116,8 @@ def create_statement(db: Session, payload: StatementCreate) -> StatementRead:
         period_start=payload.period_start,
         period_end=payload.period_end,
         note=payload.note,
+        currency=payload.currency.value,
+        country_code=payload.country_code.value,
     )
     for item in payload.line_items:
         stmt.line_items.append(
@@ -117,7 +125,7 @@ def create_statement(db: Session, payload: StatementCreate) -> StatementRead:
                 type=item.type.value,
                 category=item.category.value,
                 label=item.label,
-                amount_pence=item.amount_pence,
+                amount_minor=item.amount_minor,
             )
         )
     db.add(stmt)
@@ -159,7 +167,7 @@ def add_line_item(
             type=payload.type.value,
             category=payload.category.value,
             label=payload.label,
-            amount_pence=payload.amount_pence,
+            amount_minor=payload.amount_minor,
         )
     )
     _touch(stmt)
@@ -184,11 +192,8 @@ def update_line_item(
 
     data = payload.model_dump(exclude_unset=True)
 
-    # Compute the effective (post-patch) type + category and re-check consistency
-    # against stored state. The schema validator only catches the case where the
-    # caller supplied both fields; a partial patch could otherwise leave an
-    # incompatible pair (e.g. patching category alone to one that belongs to
-    # the opposite type).
+    # Re-check type↔category consistency against the merged state — the
+    # schema validator can only do this when both fields are supplied.
     effective_type = data["type"].value if "type" in data else item.type
     effective_category = (
         data["category"].value if "category" in data else item.category
@@ -204,8 +209,8 @@ def update_line_item(
         item.category = data["category"].value
     if "label" in data:
         item.label = data["label"]
-    if "amount_pence" in data:
-        item.amount_pence = data["amount_pence"]
+    if "amount_minor" in data:
+        item.amount_minor = data["amount_minor"]
 
     _touch(stmt)
     db.commit()
@@ -242,10 +247,11 @@ def trend(db: Session) -> list[TrendPoint]:
                 statement_id=stmt.id,
                 period_start=stmt.period_start,
                 period_end=stmt.period_end,
+                currency=Currency(stmt.currency),
                 band=result.band,
-                total_income_pence=result.total_income_pence,
-                total_expenditure_pence=result.total_expenditure_pence,
-                surplus_pence=result.surplus_pence,
+                income_minor=result.income_minor,
+                expenditure_minor=result.expenditure_minor,
+                surplus_minor=result.surplus_minor,
             )
         )
     return points

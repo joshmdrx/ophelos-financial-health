@@ -19,7 +19,7 @@ describe("LineItemForm — create mode", () => {
   it("submits a well-formed line item in pence", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={onSubmit} />);
+    render(<LineItemForm onSubmit={onSubmit} currency="GBP" />);
 
     await user.selectOptions(screen.getByLabelText(/type/i), "income");
     await user.selectOptions(screen.getByLabelText(/category/i), "salary");
@@ -32,13 +32,13 @@ describe("LineItemForm — create mode", () => {
       type: "income",
       category: "salary",
       label: "April salary",
-      amount_pence: 123_456,
+      amount_minor: 123_456,
     });
   });
 
   it("swaps the category options when the type changes", async () => {
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={vi.fn()} />);
+    render(<LineItemForm onSubmit={vi.fn()} currency="GBP" />);
 
     expect(
       screen.getByRole("option", { name: /housing/i }),
@@ -52,7 +52,7 @@ describe("LineItemForm — create mode", () => {
   it("sends a null label when description is left blank", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={onSubmit} />);
+    render(<LineItemForm onSubmit={onSubmit} currency="GBP" />);
 
     await user.type(screen.getByLabelText(/amount/i), "10");
     await user.click(screen.getByRole("button", { name: /add line/i }));
@@ -63,7 +63,7 @@ describe("LineItemForm — create mode", () => {
   });
 
   it("reflects the pending prop in the submit label", () => {
-    render(<LineItemForm onSubmit={vi.fn()} pending />);
+    render(<LineItemForm onSubmit={vi.fn()} currency="GBP" pending />);
     expect(screen.getByRole("button", { name: /adding/i })).toBeDisabled();
   });
 });
@@ -72,7 +72,7 @@ describe("LineItemForm — inline validation", () => {
   it("blocks submit and surfaces an inline error when the amount is missing", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={onSubmit} />);
+    render(<LineItemForm onSubmit={onSubmit} currency="GBP" />);
 
     // Don't type an amount.
     await user.click(screen.getByRole("button", { name: /add line/i }));
@@ -90,7 +90,7 @@ describe("LineItemForm — inline validation", () => {
   it("rejects a zero amount as not useful information", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={onSubmit} />);
+    render(<LineItemForm onSubmit={onSubmit} currency="GBP" />);
 
     await user.type(screen.getByLabelText(/amount/i), "0");
     await user.click(screen.getByRole("button", { name: /add line/i }));
@@ -103,7 +103,7 @@ describe("LineItemForm — inline validation", () => {
 
   it("does not show errors until the user attempts submit", async () => {
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={vi.fn()} />);
+    render(<LineItemForm onSubmit={vi.fn()} currency="GBP" />);
 
     // No amount typed — the validity is already broken, but we don't shout.
     expect(screen.queryByText(/amount greater than zero/i)).toBeNull();
@@ -115,7 +115,7 @@ describe("LineItemForm — inline validation", () => {
   it("flags an over-length description", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<LineItemForm onSubmit={onSubmit} />);
+    render(<LineItemForm onSubmit={onSubmit} currency="GBP" />);
 
     const overLong = "x".repeat(121);
     await user.type(screen.getByLabelText(/description/i), overLong);
@@ -130,14 +130,14 @@ describe("LineItemForm — inline validation", () => {
 describe("LineItemForm — edit mode", () => {
   it("prepopulates from `initial` and shows save + cancel buttons", () => {
     render(
-      <LineItemForm
+      <LineItemForm currency="GBP"
         onSubmit={vi.fn()}
         onCancel={vi.fn()}
         initial={makeLineItem({
           type: "income",
           category: "salary",
           label: "Paycheque",
-          amount_pence: 280_000,
+          amount_minor: 280_000,
         })}
       />,
     );
@@ -154,14 +154,14 @@ describe("LineItemForm — edit mode", () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
     render(
-      <LineItemForm
+      <LineItemForm currency="GBP"
         onSubmit={onSubmit}
         onCancel={vi.fn()}
         initial={makeLineItem({
           type: "expense",
           category: "food",
           label: "Groceries",
-          amount_pence: 50_000,
+          amount_minor: 50_000,
         })}
       />,
     );
@@ -175,7 +175,7 @@ describe("LineItemForm — edit mode", () => {
       type: "expense",
       category: "food",
       label: "Groceries",
-      amount_pence: 6_000,
+      amount_minor: 6_000,
     });
   });
 
@@ -183,7 +183,7 @@ describe("LineItemForm — edit mode", () => {
     const onCancel = vi.fn();
     const user = userEvent.setup();
     render(
-      <LineItemForm
+      <LineItemForm currency="GBP"
         onSubmit={vi.fn()}
         onCancel={onCancel}
         initial={makeLineItem()}
@@ -196,7 +196,7 @@ describe("LineItemForm — edit mode", () => {
 
   it("uses the saving label while a request is pending", () => {
     render(
-      <LineItemForm
+      <LineItemForm currency="GBP"
         onSubmit={vi.fn()}
         onCancel={vi.fn()}
         initial={makeLineItem()}

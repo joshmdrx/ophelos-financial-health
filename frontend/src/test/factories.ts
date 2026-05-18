@@ -1,6 +1,9 @@
 import type {
   Assessment,
   AssessmentBand,
+  AssessmentNumbers,
+  AssessmentTemplateKey,
+  Currency,
   LineItemRead,
   StatementRead,
   StatementSummary,
@@ -10,38 +13,33 @@ import type {
 let counter = 0;
 const nextId = () => `test-${++counter}`;
 
-const ASSESSMENT_DEFAULTS: Record<AssessmentBand, Partial<Assessment>> = {
+const BAND_TO_TEMPLATE: Record<AssessmentBand, AssessmentTemplateKey> = {
+  healthy: "healthy_default",
+  tight: "tight_default",
+  deficit: "deficit_default",
+  insufficient_data: "insufficient_data_default",
+};
+
+const NUMBERS_DEFAULTS: Record<AssessmentBand, AssessmentNumbers> = {
   healthy: {
-    total_income_pence: 300_000,
-    total_expenditure_pence: 200_000,
-    surplus_pence: 100_000,
-    surplus_ratio: 0.333,
-    explanation:
-      "You have around £1,000.00 left over after your outgoings — that's a healthy margin. Keep it up.",
+    income_minor: 300_000,
+    expenditure_minor: 200_000,
+    surplus_minor: 100_000,
   },
   tight: {
-    total_income_pence: 200_000,
-    total_expenditure_pence: 195_000,
-    surplus_pence: 5_000,
-    surplus_ratio: 0.025,
-    explanation:
-      "Your income just covers your outgoings, with about £50.00 left over.",
+    income_minor: 200_000,
+    expenditure_minor: 195_000,
+    surplus_minor: 5_000,
   },
   deficit: {
-    total_income_pence: 200_000,
-    total_expenditure_pence: 250_000,
-    surplus_pence: -50_000,
-    surplus_ratio: -0.25,
-    explanation:
-      "Your outgoings are about £500.00 more than your income this period.",
+    income_minor: 200_000,
+    expenditure_minor: 250_000,
+    surplus_minor: -50_000,
   },
   insufficient_data: {
-    total_income_pence: 0,
-    total_expenditure_pence: 0,
-    surplus_pence: 0,
-    surplus_ratio: null,
-    explanation:
-      "We don't have enough information yet to show a full picture.",
+    income_minor: 0,
+    expenditure_minor: 0,
+    surplus_minor: 0,
   },
 };
 
@@ -51,7 +49,9 @@ export function makeAssessment(
 ): Assessment {
   return {
     band,
-    ...ASSESSMENT_DEFAULTS[band],
+    template_key: BAND_TO_TEMPLATE[band],
+    currency: "GBP",
+    numbers: { ...NUMBERS_DEFAULTS[band], ...overrides.numbers },
     ...overrides,
   } as Assessment;
 }
@@ -66,7 +66,7 @@ export function makeLineItem(
     type: "expense",
     category: "food",
     label: "Groceries",
-    amount_pence: 50_000,
+    amount_minor: 50_000,
     created_at: "2026-04-01T00:00:00",
     updated_at: "2026-04-01T00:00:00",
     ...overrides,
@@ -82,6 +82,8 @@ export function makeStatementSummary(
     period_start: "2026-04-01",
     period_end: "2026-04-30",
     note: null,
+    currency: "GBP" as Currency,
+    country_code: "GB",
     created_at: "2026-04-01T00:00:00",
     updated_at: "2026-04-01T00:00:00",
     assessment: makeAssessment("healthy"),
@@ -106,10 +108,11 @@ export function makeTrendPoint(
     statement_id: overrides.statement_id ?? nextId(),
     period_start: "2026-01-01",
     period_end: "2026-01-31",
+    currency: "GBP" as Currency,
     band: "healthy",
-    total_income_pence: 300_000,
-    total_expenditure_pence: 200_000,
-    surplus_pence: 100_000,
+    income_minor: 300_000,
+    expenditure_minor: 200_000,
+    surplus_minor: 100_000,
     ...overrides,
   };
 }
