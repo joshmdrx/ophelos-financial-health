@@ -1,0 +1,61 @@
+/* Design tokens — warm, calm palette. No pure red anywhere; deficit is a
+   muted coral, not an alarm. Encourages, never punishes. */
+
+:root {
+  /* Surfaces */
+  --color-bg:               #fbf7f2;
+  --color-surface:          #ffffff;
+  --color-surface-sunken:   #f3eee7;
+  --color-border:           #e7ddd0;
+  --color-border-strong:    #d4c5b0;
+
+  /* Text */
+  --color-text:             #2a2418;
+  --color-text-muted:       #6b5e4a;
+  --color-text-subtle:      #9a8c75;
+
+  /* Brand */
+  --color-accent:           #c25f3c; /* warm terracotta */
+  --color-accent-soft:      #f4e2d8;
+
+  /* Band tones — chosen so 'deficit' reads as gentle, not alarming. */
+  --band-healthy-bg:        #e5efe1;
+  --band-healthy-fg:        #3b6a45;
+  --band-healthy-accent:    #6b9a72;
+
+  --band-tight-bg:          #fbeed3;
+  --band-tight-fg:          #7a5a1f;
+  --band-tight-accent:      #c79a3e;
+
+  --band-deficit-bg:        #f5dbd1;
+  --band-deficit-fg:        #8a3a23;
+  --band-deficit-accent:    #c25f3c;
+
+  --band-insufficient-bg:   #ece6dc;
+  --band-insufficient-fg:   #5a503f;
+  --band-insufficient-accent:#a89880;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(42, 36, 24, 0.06);
+  --shadow-md: 0 4px 16px rgba(42, 36, 24, 0.08);
+
+  /* Type */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-display: "Iowan Old Style", Georgia, "Times New Roman", serif;
+}
