@@ -44,11 +44,15 @@ def _assessment_payload(result: AssessmentResult, currency: str) -> Assessment:
     return Assessment(
         band=result.band,
         template_key=result.template_key,
+        debt_load_band=result.debt_load_band,
+        debt_load_template_key=result.debt_load_template_key,
         currency=Currency(currency),
         numbers=AssessmentNumbers(
             income_minor=result.income_minor,
             expenditure_minor=result.expenditure_minor,
             surplus_minor=result.surplus_minor,
+            outstanding_debt_minor=result.outstanding_debt_minor,
+            debt_to_income_monthly=result.debt_to_income_monthly,
         ),
     )
 
@@ -65,10 +69,14 @@ def _to_summary(statement: Statement) -> StatementSummary:
         note=statement.note,
         currency=Currency(statement.currency),
         country_code=statement.country_code,
+        outstanding_debt_minor=statement.outstanding_debt_minor,
         created_at=statement.created_at,
         updated_at=statement.updated_at,
         assessment=_assessment_payload(
-            assess(_active_line_items(statement)),
+            assess(
+                _active_line_items(statement),
+                outstanding_debt_minor=statement.outstanding_debt_minor,
+            ),
             statement.currency,
         ),
     )
@@ -118,6 +126,7 @@ def create_statement(db: Session, payload: StatementCreate) -> StatementRead:
         note=payload.note,
         currency=payload.currency.value,
         country_code=payload.country_code.value,
+        outstanding_debt_minor=payload.outstanding_debt_minor,
     )
     for item in payload.line_items:
         stmt.line_items.append(
@@ -241,7 +250,10 @@ def trend(db: Session) -> list[TrendPoint]:
     )
     points: list[TrendPoint] = []
     for stmt in db.execute(q).scalars().all():
-        result = assess(_active_line_items(stmt))
+        result = assess(
+            _active_line_items(stmt),
+            outstanding_debt_minor=stmt.outstanding_debt_minor,
+        )
         points.append(
             TrendPoint(
                 statement_id=stmt.id,
@@ -252,6 +264,8 @@ def trend(db: Session) -> list[TrendPoint]:
                 income_minor=result.income_minor,
                 expenditure_minor=result.expenditure_minor,
                 surplus_minor=result.surplus_minor,
+                debt_load_band=result.debt_load_band,
+                outstanding_debt_minor=stmt.outstanding_debt_minor,
             )
         )
     return points

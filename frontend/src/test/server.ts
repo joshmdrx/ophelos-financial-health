@@ -86,9 +86,14 @@ export const scenarios = {
     http.get(`${API}${path}`, () =>
       HttpResponse.json({ detail: "not found" }, { status: 404 }),
     ),
-  /** API returns 422 on a POST/PATCH — used for validation paths. */
+  /** API returns 422 on a POST — used for validation paths. */
   failPost: (path: string) =>
     http.post(`${API}${path}`, () =>
+      HttpResponse.json({ detail: "invalid" }, { status: 422 }),
+    ),
+  /** API returns 422 on a PATCH — used for validation paths. */
+  failPatch: (path: string) =>
+    http.patch(`${API}${path}`, () =>
       HttpResponse.json({ detail: "invalid" }, { status: 422 }),
     ),
 };

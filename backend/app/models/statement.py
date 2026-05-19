@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, String, func
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -26,6 +26,10 @@ class Statement(Base):
             f"country_code IN ({', '.join(_COUNTRY_VALUES)})",
             name="ck_statements_country_code",
         ),
+        CheckConstraint(
+            "outstanding_debt_minor IS NULL OR outstanding_debt_minor >= 0",
+            name="ck_statements_outstanding_debt_non_negative",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -37,6 +41,13 @@ class Statement(Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     # ISO 3166-1 alpha-2 country code; immutable after creation.
     country_code: Mapped[str] = mapped_column(String(2), nullable=False)
+
+    # Customer's self-reported total outstanding debt at the end of the
+    # period, in the statement's minor currency unit. NULL = "not recorded"
+    # (distinct from 0 = "debt-free"). Mutable, unlike currency/country.
+    outstanding_debt_minor: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

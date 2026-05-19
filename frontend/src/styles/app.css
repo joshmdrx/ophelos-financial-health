@@ -244,6 +244,16 @@ input:focus, select:focus, textarea:focus {
 .assessment[data-band="deficit"]          { background: var(--band-deficit-bg);      border-color: var(--band-deficit-accent); color: var(--band-deficit-fg); }
 .assessment[data-band="insufficient_data"]{ background: var(--band-insufficient-bg); border-color: var(--band-insufficient-accent); color: var(--band-insufficient-fg); }
 
+/* Debt-load card reuses the same shapes/tokens. The band → tone mapping is
+   the conservative one: both ``debt_free`` and ``manageable`` use the
+   healthy palette (both are good news), ``heavy`` uses tight (amber-ish
+   caution), ``severe`` uses deficit (warm coral, never red). */
+.assessment[data-debt-band="debt_free"]         { background: var(--band-healthy-bg);      border-color: var(--band-healthy-accent); color: var(--band-healthy-fg); }
+.assessment[data-debt-band="manageable"]        { background: var(--band-healthy-bg);      border-color: var(--band-healthy-accent); color: var(--band-healthy-fg); }
+.assessment[data-debt-band="heavy"]             { background: var(--band-tight-bg);        border-color: var(--band-tight-accent);   color: var(--band-tight-fg); }
+.assessment[data-debt-band="severe"]            { background: var(--band-deficit-bg);      border-color: var(--band-deficit-accent); color: var(--band-deficit-fg); }
+.assessment[data-debt-band="insufficient_data"] { background: var(--band-insufficient-bg); border-color: var(--band-insufficient-accent); color: var(--band-insufficient-fg); }
+
 .assessment__eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.06em;

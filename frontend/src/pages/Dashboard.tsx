@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { AssessmentCard } from "@/components/AssessmentCard";
+import { DebtLoadCard } from "@/components/DebtLoadCard";
 import { Empty } from "@/components/states/Empty";
 import { ErrorState } from "@/components/states/ErrorState";
 import { Loading } from "@/components/states/Loading";
@@ -52,6 +53,14 @@ export function Dashboard() {
         assessment={latest.assessment}
         periodLabel={formatMonthRange(latest.period_start, latest.period_end)}
       />
+      <div style={{ marginTop: 16 }}>
+        <DebtLoadCard
+          assessment={latest.assessment}
+          periodLabel={formatMonthRange(latest.period_start, latest.period_end)}
+          // Dashboard is read-only — the edit button only appears on
+          // Statements/detail where the user has the editing context.
+        />
+      </div>
       <p style={{ marginTop: 16 }}>
         <Link to="/statements">See all your statements →</Link>
       </p>

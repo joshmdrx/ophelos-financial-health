@@ -9,6 +9,8 @@ Convention:
 import time
 from datetime import date
 
+import pytest
+
 
 def _create_body(
     *,
@@ -131,6 +133,118 @@ class TestImmutability:
         assert res.status_code == 200
         assert res.json()["period_end"] == "2026-05-15"
         assert res.json()["currency"] == "GBP"  # unchanged
+
+
+# ---------- outstanding debt ----------
+
+
+class TestOutstandingDebt:
+    """Outstanding balance is the *stock* of debt at the end of the period,
+    distinct from the ``debt_repayments`` line-item category which captures
+    the *flow*. The two are independent signals — this class pins the
+    persistence + validation contract for the balance.
+    """
+
+    def test_default_is_null_when_field_omitted(self, client):
+        body = _create_body()
+        body.pop("outstanding_debt_minor", None)  # not strictly necessary
+        res = client.post("/api/statements", json=body)
+        assert res.status_code == 201
+        assert res.json()["outstanding_debt_minor"] is None
+
+    def test_create_with_balance_roundtrips(self, client):
+        body = _create_body()
+        body["outstanding_debt_minor"] = 1_500_000
+        res = client.post("/api/statements", json=body)
+        assert res.status_code == 201
+        assert res.json()["outstanding_debt_minor"] == 1_500_000
+
+    def test_zero_is_distinct_from_null(self, client):
+        """Debt-free (0) is a different signal from not-recorded (NULL).
+        Both must round-trip without one being coerced to the other.
+        """
+        body_zero = _create_body()
+        body_zero["outstanding_debt_minor"] = 0
+        r0 = client.post("/api/statements", json=body_zero).json()
+        assert r0["outstanding_debt_minor"] == 0
+
+        body_null = _create_body(period_start="2026-05-01", period_end="2026-05-31")
+        body_null["outstanding_debt_minor"] = None
+        rN = client.post("/api/statements", json=body_null).json()
+        assert rN["outstanding_debt_minor"] is None
+
+    def test_negative_balance_rejected(self, client):
+        body = _create_body()
+        body["outstanding_debt_minor"] = -1
+        res = client.post("/api/statements", json=body)
+        assert res.status_code == 422
+
+    def test_patch_updates_balance(self, client, seed_statement):
+        stmt = seed_statement(outstanding_debt_minor=500_000)
+
+        res = client.patch(
+            f"/api/statements/{stmt.id}",
+            json={"outstanding_debt_minor": 750_000},
+        )
+        assert res.status_code == 200
+        assert res.json()["outstanding_debt_minor"] == 750_000
+
+    def test_patch_can_clear_balance_with_explicit_null(self, client, seed_statement):
+        stmt = seed_statement(outstanding_debt_minor=500_000)
+
+        res = client.patch(
+            f"/api/statements/{stmt.id}",
+            json={"outstanding_debt_minor": None},
+        )
+        assert res.status_code == 200
+        assert res.json()["outstanding_debt_minor"] is None
+
+    def test_patch_without_balance_field_leaves_it_alone(self, client, seed_statement):
+        stmt = seed_statement(outstanding_debt_minor=500_000)
+
+        res = client.patch(
+            f"/api/statements/{stmt.id}",
+            json={"note": "tidied up"},
+        )
+        assert res.status_code == 200
+        # The field wasn't in the patch payload — must not be cleared.
+        assert res.json()["outstanding_debt_minor"] == 500_000
+
+    def test_patch_rejects_negative_balance(self, client, seed_statement):
+        stmt = seed_statement()
+        res = client.patch(
+            f"/api/statements/{stmt.id}",
+            json={"outstanding_debt_minor": -10},
+        )
+        assert res.status_code == 422
+
+    def test_assessment_carries_debt_load_signals(self, client, seed_statement):
+        # Income £2,800; balance £100,000 → DTI ≈ 35.7 → severe.
+        stmt = seed_statement(outstanding_debt_minor=10_000_000)
+        body = client.get(f"/api/statements/{stmt.id}").json()
+
+        assert body["assessment"]["debt_load_band"] == "severe"
+        assert (
+            body["assessment"]["debt_load_template_key"]
+            == "debt_severe_default"
+        )
+        assert body["assessment"]["numbers"]["outstanding_debt_minor"] == 10_000_000
+        assert (
+            body["assessment"]["numbers"]["debt_to_income_monthly"]
+            == pytest.approx(35.71, rel=1e-3)
+        )
+
+    def test_assessment_debt_band_is_insufficient_when_balance_unknown(
+        self, client, seed_statement
+    ):
+        stmt = seed_statement()  # default leaves debt as NULL
+        body = client.get(f"/api/statements/{stmt.id}").json()
+
+        # Affordability still computed; debt-load tells the truth about the gap.
+        assert body["assessment"]["band"] == "healthy"
+        assert body["assessment"]["debt_load_band"] == "insufficient_data"
+        assert body["assessment"]["numbers"]["outstanding_debt_minor"] is None
+        assert body["assessment"]["numbers"]["debt_to_income_monthly"] is None
 
 
 # ---------- list / get / soft delete ----------

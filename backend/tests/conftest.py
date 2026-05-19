@@ -87,6 +87,7 @@ def seed_statement(db: Session) -> SeedStatement:
         note: str | None = None,
         currency: str = DEFAULT_CURRENCY,
         country_code: str = DEFAULT_COUNTRY,
+        outstanding_debt_minor: int | None = None,
         items: list[tuple[str, str, str | None, int]] | None = None,
     ) -> Statement:
         if items is None:
@@ -98,6 +99,7 @@ def seed_statement(db: Session) -> SeedStatement:
             note=note,
             currency=currency,
             country_code=country_code,
+            outstanding_debt_minor=outstanding_debt_minor,
         )
         for type_, category, label, amount in items:
             stmt.line_items.append(

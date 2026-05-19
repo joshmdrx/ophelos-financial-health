@@ -139,7 +139,7 @@ describe("Statements page", () => {
 
     const form = await screen.findByRole("form", { name: /new statement/i });
     const startInput = within(form).getByLabelText(/from/i);
-    const endInput = within(form).getByLabelText(/to/i);
+    const endInput = within(form).getByLabelText(/^to$/i);
     await user.clear(startInput);
     await user.type(startInput, "2026-05-01");
     await user.clear(endInput);

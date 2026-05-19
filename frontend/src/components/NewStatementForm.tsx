@@ -8,10 +8,18 @@ interface Props {
     period_end: string;
     currency: Currency;
     country_code: CountryCode;
+    outstanding_debt_minor: number | null;
   }) => void;
   onCancel: () => void;
   pending?: boolean;
 }
+
+const CURRENCY_SYMBOL: Record<Currency, string> = {
+  GBP: "£",
+  EUR: "€",
+  USD: "$",
+  AUD: "A$",
+};
 
 const CURRENCIES: { value: Currency; label: string }[] = [
   { value: "GBP", label: "GBP — British pound" },
@@ -43,16 +51,34 @@ export function NewStatementForm({ onSubmit, onCancel, pending }: Props) {
   const [end, setEnd] = useState(initial.end);
   const [currency, setCurrency] = useState<Currency>("GBP");
   const [country, setCountry] = useState<CountryCode>("GB");
-  const invalid = !!start && !!end && end < start;
+  // Empty string = "not recorded" (NULL). The user can type 0 to mean
+  // "debt-free" explicitly — we don't conflate those.
+  const [debt, setDebt] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const periodInvalid = !!start && !!end && end < start;
+
+  // Parse the debt input lazily so we can show a validation message without
+  // forcing the user to clear-and-retype.
+  const debtParsed = debt === "" ? null : parseFloat(debt);
+  const debtInvalid =
+    debtParsed !== null && (!Number.isFinite(debtParsed) || debtParsed < 0);
+
+  const invalid = periodInvalid || debtInvalid;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
     if (invalid) return;
     onSubmit({
       period_start: start,
       period_end: end,
       currency,
       country_code: country,
+      // Major-unit string → minor-unit integer. Empty input stays as null
+      // ("not recorded") which is meaningfully different from 0 ("debt-free").
+      outstanding_debt_minor:
+        debtParsed === null ? null : Math.round(debtParsed * 100),
     });
   }
 
@@ -112,9 +138,53 @@ export function NewStatementForm({ onSubmit, onCancel, pending }: Props) {
             ))}
           </select>
         </div>
+        <div className="form-row" style={{ gridColumn: "1 / -1" }}>
+          <label htmlFor="ns-debt">
+            Total outstanding debt ({CURRENCY_SYMBOL[currency]})
+            <span
+              style={{
+                fontWeight: 400,
+                color: "var(--color-text-muted)",
+                marginLeft: 8,
+              }}
+            >
+              optional — leave blank if you'd rather skip
+            </span>
+          </label>
+          <input
+            id="ns-debt"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={debt}
+            onChange={(e) => setDebt(e.target.value)}
+            placeholder="e.g. 1200.00"
+            aria-invalid={submitted && debtInvalid}
+            aria-describedby={
+              submitted && debtInvalid ? "ns-debt-error" : "ns-debt-hint"
+            }
+          />
+          {submitted && debtInvalid ? (
+            <p id="ns-debt-error" className="field-error" role="alert">
+              Please enter zero or a positive amount.
+            </p>
+          ) : (
+            <p
+              id="ns-debt-hint"
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--color-text-muted)",
+                margin: 0,
+              }}
+            >
+              Entering 0 means "no outstanding debt". You can edit this later.
+            </p>
+          )}
+        </div>
       </div>
-      {invalid && (
-        <p style={{ color: "var(--band-deficit-fg)", fontSize: "0.85rem" }}>
+      {periodInvalid && (
+        <p className="field-error" role="alert">
           The end date needs to be on or after the start date.
         </p>
       )}

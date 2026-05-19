@@ -120,3 +120,33 @@ def test_trend_includes_currency_per_point(client, seed_statement):
 
     points = client.get("/api/trend").json()
     assert [p["currency"] for p in points] == ["GBP", "EUR"]
+
+
+def test_trend_carries_outstanding_debt_and_band_per_point(client, seed_statement):
+    # No balance recorded → debt band falls into insufficient_data and the
+    # raw amount is None. A recorded balance flows through verbatim so the
+    # chart can render its own line.
+    seed_statement(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        outstanding_debt_minor=None,
+    )
+    seed_statement(
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 2, 28),
+        outstanding_debt_minor=0,  # debt-free
+    )
+    seed_statement(
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        outstanding_debt_minor=1_500_000,  # depends on income
+    )
+
+    points = client.get("/api/trend").json()
+    assert [p["outstanding_debt_minor"] for p in points] == [None, 0, 1_500_000]
+    assert [p["debt_load_band"] for p in points] == [
+        "insufficient_data",
+        "debt_free",
+        # Seed-default income (£2,800) gives a DTI of ~5.4 — manageable.
+        "manageable",
+    ]

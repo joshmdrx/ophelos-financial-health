@@ -31,6 +31,25 @@ class AssessmentBand(str, Enum):
     insufficient_data = "insufficient_data"
 
 
+class DebtLoadBand(str, Enum):
+    """How heavy is the customer's outstanding balance relative to their
+    monthly income? Independent of the affordability (cashflow) band.
+
+    Mapping uses debt-to-monthly-income (DTI_m):
+      - ≤ 0           → ``debt_free``
+      - ≤ 6×          → ``manageable``
+      - ≤ 12×         → ``heavy``
+      - > 12×         → ``severe``
+      - missing data  → ``insufficient_data``
+    """
+
+    debt_free = "debt_free"
+    manageable = "manageable"
+    heavy = "heavy"
+    severe = "severe"
+    insufficient_data = "insufficient_data"
+
+
 # Currency + country allowlists. Kept deliberately small.
 #
 # All currencies in this allowlist have a 2-digit minor unit (pence, cents),
@@ -58,10 +77,17 @@ class CountryCode(str, Enum):
 # frontend owns the rendered string and tone. The ``_default`` suffix leaves
 # room for variants later (e.g. ``deficit_first_time``) without renames.
 class AssessmentTemplateKey(str, Enum):
+    # Affordability (cashflow) bands.
     healthy_default = "healthy_default"
     tight_default = "tight_default"
     deficit_default = "deficit_default"
     insufficient_data_default = "insufficient_data_default"
+    # Debt-load bands.
+    debt_free_default = "debt_free_default"
+    debt_manageable_default = "debt_manageable_default"
+    debt_heavy_default = "debt_heavy_default"
+    debt_severe_default = "debt_severe_default"
+    debt_insufficient_data_default = "debt_insufficient_data_default"
 
 
 CATEGORIES_BY_TYPE: dict[LineItemType, set[str]] = {

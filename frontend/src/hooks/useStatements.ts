@@ -9,6 +9,7 @@ import {
   getTrend,
   listStatements,
   updateLineItem,
+  updateStatement,
 } from "@/api";
 import type {
   LineItemCreate,
@@ -16,6 +17,7 @@ import type {
   StatementCreate,
   StatementRead,
   StatementSummary,
+  StatementUpdate,
   TrendPoint,
 } from "@/api";
 
@@ -68,6 +70,21 @@ export function useCreateStatement() {
     mutationFn: (body: StatementCreate) =>
       unwrap<StatementRead>(createStatement({ body })),
     onSuccess: (created) => invalidateAll(qc, created.id),
+  });
+}
+
+/**
+ * PATCH a statement. Used today for editing the outstanding-debt balance
+ * (currency and country are immutable; the backend rejects them with 422).
+ */
+export function useUpdateStatement(statementId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: StatementUpdate) =>
+      unwrap<StatementRead>(
+        updateStatement({ path: { statement_id: statementId }, body }),
+      ),
+    onSuccess: () => invalidateAll(qc, statementId),
   });
 }
 

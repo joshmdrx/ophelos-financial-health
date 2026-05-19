@@ -27,6 +27,10 @@ const BAND_COLOR: Record<AssessmentBand, string> = {
   insufficient_data: "var(--band-insufficient-accent)",
 };
 
+// Visually distinct from surplus — same warm palette but a slate-ish hue
+// so the two lines don't fight. Debt is a stock; surplus is a flow.
+const DEBT_LINE_COLOR = "var(--color-text-muted)";
+
 function shortMonth(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", {
     month: "short",
@@ -74,6 +78,14 @@ function TrendTooltip({
         <br />
         {p.surplus_minor >= 0 ? "Surplus" : "Shortfall"}{" "}
         {formatMoney(Math.abs(p.surplus_minor), p.currency)}
+        {p.outstanding_debt_minor !== null
+          && p.outstanding_debt_minor !== undefined && (
+          <>
+            <br />
+            Outstanding debt{" "}
+            {formatMoney(p.outstanding_debt_minor, p.currency)}
+          </>
+        )}
       </div>
     </div>
   );
@@ -102,6 +114,7 @@ function BandedDot({ cx, cy, payload }: DotProps) {
 export function Trend() {
   const { data, isLoading, isError, refetch } = useTrend();
   const [currency, setCurrency] = useState<Currency | null>(null);
+  const [showDebt, setShowDebt] = useState(true);
 
   // The set of currencies the user actually has statements in — drives the
   // filter dropdown so we never offer one with no data behind it.
@@ -155,7 +168,21 @@ export function Trend() {
     ...p,
     label: shortMonth(p.period_end),
     surplus_major: p.surplus_minor / 100,
+    // Recharts ignores null y-values, leaving a gap. That's exactly what we
+    // want for "balance not recorded" — don't fabricate a zero.
+    debt_major:
+      p.outstanding_debt_minor !== null
+        && p.outstanding_debt_minor !== undefined
+        ? p.outstanding_debt_minor / 100
+        : null,
   }));
+
+  // Hide the debt toggle entirely if none of the (filtered) statements have a
+  // balance — no point showing a toggle for an empty line.
+  const anyDebtRecorded = filtered.some(
+    (p) =>
+      p.outstanding_debt_minor !== null && p.outstanding_debt_minor !== undefined,
+  );
 
   return (
     <>
@@ -167,31 +194,54 @@ export function Trend() {
         </p>
       </header>
 
-      {availableCurrencies.length > 1 && (
+      {(availableCurrencies.length > 1 || anyDebtRecorded) && (
         <div
           className="toolbar"
-          style={{ justifyContent: "flex-start", gap: 12 }}
+          style={{ justifyContent: "flex-start", gap: 16, flexWrap: "wrap" }}
         >
-          <label htmlFor="trend-currency" style={{ fontSize: "0.9rem" }}>
-            Showing
-          </label>
-          <select
-            id="trend-currency"
-            value={effectiveCurrency ?? ""}
-            onChange={(e) => setCurrency(e.target.value as Currency)}
-          >
-            {availableCurrencies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <span
-            style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}
-          >
-            Statements in other currencies aren't mixed in — pick another to
-            see those.
-          </span>
+          {availableCurrencies.length > 1 && (
+            <>
+              <label htmlFor="trend-currency" style={{ fontSize: "0.9rem" }}>
+                Showing
+              </label>
+              <select
+                id="trend-currency"
+                value={effectiveCurrency ?? ""}
+                onChange={(e) => setCurrency(e.target.value as Currency)}
+              >
+                {availableCurrencies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <span
+                style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}
+              >
+                Statements in other currencies aren't mixed in.
+              </span>
+            </>
+          )}
+          {anyDebtRecorded && (
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: "0.9rem",
+                color: "var(--color-text-muted)",
+                marginLeft: "auto",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={showDebt}
+                onChange={(e) => setShowDebt(e.target.checked)}
+                aria-label="Show outstanding debt line"
+              />
+              Show outstanding debt
+            </label>
+          )}
         </div>
       )}
 
@@ -230,12 +280,29 @@ export function Trend() {
             <Line
               type="monotone"
               dataKey="surplus_major"
+              name="Surplus"
               stroke="var(--color-accent)"
               strokeWidth={2}
               dot={<BandedDot />}
               activeDot={{ r: 8 }}
               isAnimationActive={false}
             />
+            {showDebt && anyDebtRecorded && (
+              <Line
+                type="monotone"
+                dataKey="debt_major"
+                name="Outstanding debt"
+                stroke={DEBT_LINE_COLOR}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                // Connect across gaps in case a statement has no balance
+                // recorded — but a *missing* point itself still shows as a
+                // gap (null y).
+                connectNulls={false}
+                dot={{ r: 4, fill: DEBT_LINE_COLOR }}
+                isAnimationActive={false}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -255,6 +322,10 @@ export function Trend() {
 
       <section className="card" style={{ marginTop: 24 }}>
         <h2 className="card__title">How to read this</h2>
+        <p style={{ color: "var(--color-text-muted)", marginTop: 0 }}>
+          The solid line is your monthly <strong>surplus</strong>. Dot colour
+          shows how that month landed:
+        </p>
         <ul
           style={{
             margin: 0,
@@ -287,6 +358,20 @@ export function Trend() {
             — not enough information yet.
           </li>
         </ul>
+        {anyDebtRecorded && (
+          <p
+            style={{
+              color: "var(--color-text-muted)",
+              marginTop: 12,
+              marginBottom: 0,
+            }}
+          >
+            The dashed line is your <strong>outstanding debt</strong> over
+            time. Months without a recorded balance show as a gap so the
+            chart never invents a zero. Manageable, heavy, and significant
+            levels are described next to each statement.
+          </p>
+        )}
       </section>
     </>
   );

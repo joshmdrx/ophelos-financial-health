@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { AssessmentCard } from "@/components/AssessmentCard";
+import { BalanceForm } from "@/components/BalanceForm";
 import { BandPill } from "@/components/BandPill";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { DebtLoadCard } from "@/components/DebtLoadCard";
 import { InlineError } from "@/components/InlineError";
 import { LineItemForm } from "@/components/LineItemForm";
 import { LineItemTable } from "@/components/LineItemTable";
@@ -18,6 +20,7 @@ import {
   useStatement,
   useStatementList,
   useUpdateLineItem,
+  useUpdateStatement,
 } from "@/hooks/useStatements";
 import { formatMoney, formatMonthRange } from "@/lib/format";
 
@@ -173,12 +176,14 @@ function StatementDetail({
   const addItem = useAddLineItem(statementId);
   const updateItem = useUpdateLineItem(statementId);
   const deleteItem = useDeleteLineItem(statementId);
+  const updateStmt = useUpdateStatement(statementId);
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingDeleteItemId, setPendingDeleteItemId] = useState<string | null>(
     null,
   );
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [editingBalance, setEditingBalance] = useState(false);
 
   if (isLoading) return <Loading what="this statement" />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} />;
@@ -210,6 +215,40 @@ function StatementDetail({
         Recorded in <strong>{data.currency}</strong> · {data.country_code} ·
         these can't change once a statement is created.
       </p>
+
+      {editingBalance ? (
+        <div style={{ marginTop: 16 }}>
+          <BalanceForm
+            currency={data.currency}
+            initialMinor={data.outstanding_debt_minor ?? null}
+            pending={updateStmt.isPending}
+            onCancel={() => {
+              setEditingBalance(false);
+              updateStmt.reset();
+            }}
+            onSubmit={(amountMinor) =>
+              updateStmt.mutate(
+                { outstanding_debt_minor: amountMinor },
+                {
+                  onSuccess: () => setEditingBalance(false),
+                },
+              )
+            }
+          />
+          <InlineError error={updateStmt.error} />
+        </div>
+      ) : (
+        <div style={{ marginTop: 16 }}>
+          <DebtLoadCard
+            assessment={data.assessment}
+            periodLabel={formatMonthRange(data.period_start, data.period_end)}
+            onEditBalance={() => {
+              setEditingBalance(true);
+              updateStmt.reset();
+            }}
+          />
+        </div>
+      )}
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2 className="card__title">Income and outgoings</h2>

@@ -13,6 +13,9 @@ class StatementBase(BaseModel):
     note: str | None = Field(default=None, max_length=1000)
     currency: Currency
     country_code: CountryCode
+    # NULL means "balance not recorded" — explicitly different from 0
+    # ("debt-free"). The frontend renders the two cases differently.
+    outstanding_debt_minor: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _period_end_after_start(self):
@@ -34,6 +37,11 @@ class StatementUpdate(BaseModel):
     period_start: date | None = None
     period_end: date | None = None
     note: str | None = Field(default=None, max_length=1000)
+    # Mutable, unlike currency/country: the customer might correct their
+    # self-reported balance or update it for a new period. Use Pydantic's
+    # field-not-supplied semantics (``exclude_unset``) in the service so an
+    # absent key isn't confused with an explicit null.
+    outstanding_debt_minor: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _period_end_after_start(self):
@@ -57,6 +65,7 @@ class StatementSummary(BaseModel):
     note: str | None
     currency: Currency
     country_code: CountryCode
+    outstanding_debt_minor: int | None
     created_at: datetime
     updated_at: datetime
     assessment: Assessment
